@@ -41,12 +41,35 @@ Single-page browser chess game. No backend. Play vs Stockfish, vs another human 
 - **Themeable**: ship 2–3 themes, user picks
 - Specific themes TBD — Round 3
 
-## 7. Open questions (to resolve)
+## 7. Engine / difficulty
 
-- Round 2: engine difficulty UX, move list / PGN export, time controls, board orientation in pass-and-play, sound, promotion UI
-- Round 3: theme palette specifics, layout (board + sidebar? stacked on mobile?), animations
+- **Skill slider 1–20** (maps to Stockfish UCI `Skill Level`)
+- Named labels along the slider at intervals (e.g. _Beginner / Casual / Strong / Master_) so the number means something
+- Optional internal move-time cap per tier (kept off the UI surface)
+
+## 8. Move list & navigation
+
+- **SAN move list** rendered as `1. e4 e5  2. Nf3 ...`
+  - Current ply highlighted
+  - Click any move to jump there (read-only view; making a new move from a jumped-back state forks / truncates — exact behavior TBD)
+- **Undo / Redo buttons** for step-back/step-forward
+- **Hint button** — asks Stockfish for the best move in the current position; UX (arrow on board? text in sidebar?) TBD round 3
+- ~~Copy PGN to clipboard~~ — not in v1
+
+## 9. Clocks
+
+- **No clocks in v1.** All games untimed.
+
+## 10. Pass-and-play orientation
+
+- **User-toggleable** in settings: auto-flip-after-each-move _vs_ stay-fixed-white-on-bottom
+- Default TBD round 3
+
+## 11. Open questions (to resolve)
+
+- Round 3: theme palette specifics, layout (sidebar vs stacked), animations, sound, promotion UI, game-end behavior (resign/draw/checkmate banner), hint-button visual UX, engine-vs-engine controls
 - Round 4: tests, deploy, accessibility, PWA?
 
 ---
 
-_Last updated: round 1 complete._
+_Last updated: round 2 complete._
