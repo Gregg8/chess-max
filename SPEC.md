@@ -162,4 +162,15 @@ UI smoke tests (RTL):
 
 ---
 
-_Interview complete (4 rounds). Next step: scaffold the project._
+_Interview complete (4 rounds). Implementation: shipped in this branch._
+
+---
+
+## 20. v1 implementation notes
+
+- **Stockfish variant**: ships the single-threaded `stockfish-nnue-16-single.wasm` to avoid the SharedArrayBuffer / COOP+COEP requirement (GitHub Pages doesn't set those headers). Plenty fast for human play.
+- **Piece set**: ships simple inline SVG pieces (recognizable silhouettes, themeable via `--piece-light` / `--piece-dark` / `--piece-outline` CSS variables). Cburnett SVGs can be swapped in later without touching consumers.
+- **Persistence**: localStorage with versioned schema (`{ v: 1, ... }`), try/catch on every read/write, trailing-edge debounce on writes (200ms). If past-games history is ever added, swap to idb-keyval.
+- **Input**: drag candidate is started on `pointerdown` and only upgraded to an active drag after 5px of movement. Smaller movements fall through to the `click` handler for tap-tap. Both flows are always live.
+- **Hint**: asks Stockfish at full strength (skill 20) regardless of game difficulty, so the hint is meaningful.
+- **Undo in human-vs-engine**: undoes the engine's reply AND the human's move, so the human is back on move (otherwise undo would only flip the side to the engine, which would immediately replay).

@@ -6,3 +6,4 @@ dist-ssr
 .vite
 coverage
 public/stockfish/
+*.tsbuildinfo
