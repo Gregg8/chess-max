@@ -13,7 +13,7 @@ This spec was built interview-style; it's committed so a context-wipe is recover
 - **Engine**: Stockfish.wasm, loaded in a dedicated Web Worker, served as a static asset (no CDN dependency at runtime — PWA must work offline)
 - **State**: React state + localStorage for persistence
 - **Pieces**: Cburnett SVG set (public domain, the lichess/Wikipedia standard) — default unless changed
-- **Styling**: CSS modules + CSS variables for theming — default unless changed
+- **Styling**: a single `global.css` with CSS custom properties for theming (CSS modules were on the table during the interview but a single stylesheet was simpler for the scope)
 - **Tests**: Vitest + React Testing Library
 - **CI/CD**: GitHub Actions → GitHub Pages on push to `main`
 
@@ -102,7 +102,7 @@ Themes implemented as CSS custom properties; switching is instant, no reload.
 
 - **Both on by default**, both toggleable in settings.
 - Piece move animation: ~150ms ease-out slide. Disable respects `prefers-reduced-motion`.
-- Sound effects: move, capture, check, castle, promotion, game-end. Public-domain WAVs.
+- Sound effects: move, capture, check, castle, promotion, game-end, illegal. **Web Audio synthesized tones** (no asset files; zero licensing concerns; small bundle). AudioContext primed on first user interaction (iOS requirement).
 
 ## 14. Accessibility (v1)
 
@@ -156,21 +156,45 @@ UI smoke tests (RTL):
 - No backend, no accounts, no multiplayer-over-network.
 - No PGN/FEN import or export.
 - No clocks / time controls.
-- No analysis board, variation trees, or engine evaluation bar.
+- No analysis board / variation trees.
 - No past-games history.
 - No opening book / endgame tablebase.
 
 ---
 
-_Interview complete (4 rounds). Implementation: shipped in this branch._
+_Interview complete (4 rounds). v1 implementation shipped. Sections §21+ track features added after v1._
 
 ---
 
 ## 20. v1 implementation notes
 
 - **Stockfish variant**: ships the single-threaded `stockfish-nnue-16-single.wasm` to avoid the SharedArrayBuffer / COOP+COEP requirement (GitHub Pages doesn't set those headers). Plenty fast for human play.
-- **Piece set**: ships simple inline SVG pieces (recognizable silhouettes, themeable via `--piece-light` / `--piece-dark` / `--piece-outline` CSS variables). Cburnett SVGs can be swapped in later without touching consumers.
+- **Piece set**: ships the **Cburnett** set (Colin M.L. Burnett, multi-licensed GFDL/BSD/CC-BY-SA), served as static SVG files from `public/pieces/cburnett/`. The initial spec called for theme-able piece colors via CSS vars; we walked that back when adopting Cburnett since the fixed white/black with strong outlines reads correctly on all four board themes including high-contrast.
 - **Persistence**: localStorage with versioned schema (`{ v: 1, ... }`), try/catch on every read/write, trailing-edge debounce on writes (200ms). If past-games history is ever added, swap to idb-keyval.
 - **Input**: drag candidate is started on `pointerdown` and only upgraded to an active drag after 5px of movement. Smaller movements fall through to the `click` handler for tap-tap. Both flows are always live.
 - **Hint**: asks Stockfish at full strength (skill 20) regardless of game difficulty, so the hint is meaningful.
 - **Undo in human-vs-engine**: undoes the engine's reply AND the human's move, so the human is back on move (otherwise undo would only flip the side to the engine, which would immediately replay).
+
+## 21. Captured pieces + material badge (post-v1)
+
+- Two thin strips, **above** and **below** the board, each acting as the trophy display for the side it sits next to.
+  - Bottom strip → captures by the side at the bottom of the current orientation.
+  - Top strip → captures by the side at the top.
+- Strips flip with board orientation in pass-and-play (auto-flip mode).
+- Pieces sorted left-to-right by descending value (Q R B N P), one icon per captured piece, slight 3px overlap.
+- **Material badge** `+N` shown next to whichever side is ahead, hidden when even.
+- Material delta is computed from current piece-value sums (so promotions count: a side that promotes to queen gains +8 net), not just from the captured-list length.
+- The captured list itself comes from `chess.js`'s verbose history (`m.captured`), so it reflects only actual captures — a pawn that promoted doesn't appear as "captured."
+
+## 22. Evaluation bar (post-v1)
+
+- Thin **vertical bar** pinned to the left of the board (16px wide), filled white-from-the-white-side up to a percentage; gradient flips with board orientation.
+- Maps centipawns to win-probability via the lichess sigmoid: `50 + 50 * (2/(1 + exp(-0.00368 * cp)) - 1)`. Clamped to ±1500 cp. Forced mate → 0% or 100%.
+- **Toggleable** in settings; **default on**. (The "spoiler problem" in human-vs-engine — bar telling you Stockfish's true assessment even at Beginner difficulty — is acknowledged as a tradeoff for the feature being discoverable; users who don't want it can flip it off.)
+- Eval runs at full strength (Skill 20), depth 12, after each settled position.
+- **Numeric label removed** — at 16px wide the bar can't fit `+1.5` cleanly. If a number is wanted back, it can live in the sidebar status panel instead.
+- **Single-worker contention**: the engine has one search slot, so plays and evals can't run simultaneously. Gating:
+  - HvE: eval skipped while it's the engine's turn (play takes priority); fires after the engine replies and on undo/redo/move-list jumps.
+  - Pass-and-play: fires after every move and on navigation.
+  - EvE: fires between plays. On Normal/Slow speeds it completes; on **Fast** (~50ms gap) it usually gets superseded by the next play — bar mostly stays put on Fast. A second dedicated Stockfish worker would fix this; not built yet.
+- Eval bar reflects the **currently-displayed** position, not just live — undo/redo and click-to-jump retrigger it.

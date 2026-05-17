@@ -12,7 +12,7 @@ A single-page browser chess game. Play against Stockfish, pass-and-play with ano
 - **Move list** with click-to-jump navigation, undo / redo, full-strength hint (drawn as an arrow on the board), and resign.
 - **On-board promotion picker** at the destination square.
 - **Captured-pieces strips** above and below the board, with a `+N` material-advantage badge.
-- **Toggleable Stockfish evaluation bar** alongside the board (off by default in human-vs-engine to avoid spoilers).
+- **Stockfish evaluation bar** alongside the board (toggleable in settings; on by default). Reflects the currently-displayed position, so undo / redo / click-to-jump in the move list all update it.
 - **Four themes**: classic wood, tournament green, midnight, high-contrast.
 - **Sound** synthesized via Web Audio (no asset files); animation respects `prefers-reduced-motion`.
 - **Keyboard accessible** — arrow keys navigate, Enter / Space picks up and drops pieces; ARIA grid with per-square labels and a live region announcing moves.
