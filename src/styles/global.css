@@ -236,6 +236,14 @@ select {
   transition: none;
   pointer-events: none;
 }
+.piece img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .piece.animating { transition: none; }
 }
