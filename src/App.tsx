@@ -234,16 +234,23 @@ export function App() {
     if (snapshot.outcome.kind !== 'in-progress') setEvePlaying(false);
   }, [snapshot.outcome.kind]);
 
-  // Evaluation bar: query Stockfish at full strength after each settled position.
+  // Evaluation bar: query Stockfish at full strength for the position
+  // currently shown. Fires for live positions AND when navigating back via
+  // undo/redo/move-list jumps, so the bar reflects whatever's on screen.
   useEffect(() => {
     if (!settings.evalBarOn) return;
-    if (!gameRef.current.isLive()) return;
     if (thinking) return;
-    // In HvE: skip while it's the engine's turn — the engine query takes priority.
-    if (session.mode === 'human-vs-engine' && snapshot.turn !== session.humanSide) return;
-    // In EvE: only eval when paused, to avoid contending with the play-loop.
-    if (session.mode === 'engine-vs-engine' && evePlaying) return;
-    if (snapshot.outcome.kind !== 'in-progress') return;
+    // In HvE at live position: skip while it's the engine's turn — the engine
+    // query takes priority. (When navigating history, this gate doesn't apply.)
+    if (
+      gameRef.current.isLive() &&
+      session.mode === 'human-vs-engine' &&
+      snapshot.turn !== session.humanSide
+    ) return;
+    if (snapshot.outcome.kind !== 'in-progress' && gameRef.current.isLive()) return;
+    // In EvE-playing: eval fires between plays. On Fast speed it'll often
+    // get superseded by the next play query; on Normal/Slow it has time
+    // to complete. (For solid eval on Fast, would need a second worker.)
     let cancelled = false;
     const fenAtRequest = snapshot.fen;
     (async () => {
@@ -261,7 +268,7 @@ export function App() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.fen, snapshot.outcome.kind, thinking, settings.evalBarOn, session.mode, session.humanSide, evePlaying]);
+  }, [snapshot.fen, snapshot.outcome.kind, thinking, settings.evalBarOn, session.mode, session.humanSide]);
 
   const onMove = useCallback(
     (from: SquareName, to: SquareName, promotion?: PieceType) => {

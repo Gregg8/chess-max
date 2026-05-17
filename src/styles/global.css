@@ -164,7 +164,7 @@ select {
   width: 22px;
   height: 22px;
   display: inline-block;
-  margin-left: -6px;
+  margin-left: -3px;
 }
 .captured-piece:first-child {
   margin-left: 0;
