@@ -17,6 +17,8 @@ import { Sidebar } from './components/Sidebar';
 import { NewGameModal } from './components/NewGameModal';
 import { SettingsPanel } from './components/SettingsPanel';
 import { EndGameBanner } from './components/EndGameBanner';
+import { CapturedStrip } from './components/CapturedStrip';
+import { EvalBar } from './components/EvalBar';
 
 interface SessionState {
   mode: GameMode;
@@ -55,6 +57,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [evePlaying, setEvePlaying] = useState(false);
+  const [evaluation, setEvaluation] = useState<{ cp: number | null; mate: number | null } | null>(null);
 
   const engineRef = useRef<StockfishEngine | null>(null);
 
@@ -231,6 +234,35 @@ export function App() {
     if (snapshot.outcome.kind !== 'in-progress') setEvePlaying(false);
   }, [snapshot.outcome.kind]);
 
+  // Evaluation bar: query Stockfish at full strength after each settled position.
+  useEffect(() => {
+    if (!settings.evalBarOn) return;
+    if (!gameRef.current.isLive()) return;
+    if (thinking) return;
+    // In HvE: skip while it's the engine's turn — the engine query takes priority.
+    if (session.mode === 'human-vs-engine' && snapshot.turn !== session.humanSide) return;
+    // In EvE: only eval when paused, to avoid contending with the play-loop.
+    if (session.mode === 'engine-vs-engine' && evePlaying) return;
+    if (snapshot.outcome.kind !== 'in-progress') return;
+    let cancelled = false;
+    const fenAtRequest = snapshot.fen;
+    (async () => {
+      try {
+        const engine = await getEngine();
+        const r = await engine.evaluate(fenAtRequest, 12);
+        if (cancelled) return;
+        if (gameRef.current.snapshot().fen !== fenAtRequest) return;
+        setEvaluation({ cp: r.cp, mate: r.mate });
+      } catch {
+        // superseded or destroyed — ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.fen, snapshot.outcome.kind, thinking, settings.evalBarOn, session.mode, session.humanSide, evePlaying]);
+
   const onMove = useCallback(
     (from: SquareName, to: SquareName, promotion?: PieceType) => {
       const result = gameRef.current.move(from, to, promotion);
@@ -321,6 +353,7 @@ export function App() {
       setBannerDismissed(false);
       setEvePlaying(cfg.mode === 'engine-vs-engine');
       setNewGameOpen(false);
+      setEvaluation(null);
       lastSoundedCursor.current = 0;
       refresh();
     },
@@ -358,16 +391,45 @@ export function App() {
         </div>
       </header>
 
-      <div style={{ position: 'relative' }}>
-        <Board
-          snapshot={snapshot}
-          orientation={orientation}
-          interactive={interactive}
-          animate={settings.animationOn}
-          hint={hint}
-          onMove={onMove}
-          onIllegal={() => play('illegal')}
-        />
+      <div className="board-column" style={{ position: 'relative' }}>
+        {(() => {
+          const topSide: Color = orientation === 'w' ? 'b' : 'w';
+          const bottomSide: Color = orientation;
+          const topRaw = topSide === 'w' ? snapshot.materialDelta : -snapshot.materialDelta;
+          const bottomRaw = bottomSide === 'w' ? snapshot.materialDelta : -snapshot.materialDelta;
+          return (
+            <>
+              <CapturedStrip
+                pieces={snapshot.captured[topSide]}
+                capturedColor={bottomSide}
+                advantage={Math.max(0, topRaw)}
+              />
+              <div className="board-and-eval">
+                {settings.evalBarOn && (
+                  <EvalBar
+                    cp={evaluation?.cp ?? null}
+                    mate={evaluation?.mate ?? null}
+                    orientation={orientation}
+                  />
+                )}
+                <Board
+                  snapshot={snapshot}
+                  orientation={orientation}
+                  interactive={interactive}
+                  animate={settings.animationOn}
+                  hint={hint}
+                  onMove={onMove}
+                  onIllegal={() => play('illegal')}
+                />
+              </div>
+              <CapturedStrip
+                pieces={snapshot.captured[bottomSide]}
+                capturedColor={topSide}
+                advantage={Math.max(0, bottomRaw)}
+              />
+            </>
+          );
+        })()}
         {bannerVisible && (
           <EndGameBanner
             outcome={snapshot.outcome}

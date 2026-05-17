@@ -15,7 +15,21 @@ export interface GameSnapshot {
   lastMove: { from: SquareName; to: SquareName } | null;
   inCheck: boolean;
   outcome: Outcome;
+  // Pieces captured by each side, in capture order.
+  captured: { w: PieceType[]; b: PieceType[] };
+  // Net material delta computed from current piece values, accounting for
+  // promotions correctly. Positive = white ahead; negative = black ahead.
+  materialDelta: number;
 }
+
+const PIECE_VALUES: Record<PieceType, number> = {
+  p: 1,
+  n: 3,
+  b: 3,
+  r: 5,
+  q: 9,
+  k: 0,
+};
 
 export class GameState {
   private chess: Chess;
@@ -55,7 +69,19 @@ export class GameState {
         }
       }
     }
-    const recentMove = this.chess.history({ verbose: true }).at(-1) as Move | undefined;
+    const verbose = this.chess.history({ verbose: true }) as Move[];
+    const recentMove = verbose.at(-1);
+    const captured: { w: PieceType[]; b: PieceType[] } = { w: [], b: [] };
+    for (const m of verbose) {
+      if (m.captured) {
+        captured[m.color as Color].push(m.captured as PieceType);
+      }
+    }
+    let materialDelta = 0;
+    for (const p of pieces) {
+      const v = PIECE_VALUES[p.type];
+      materialDelta += p.color === 'w' ? v : -v;
+    }
     return {
       fen: this.chess.fen(),
       turn: this.chess.turn() as Color,
@@ -68,6 +94,8 @@ export class GameState {
         : null,
       inCheck: this.chess.inCheck(),
       outcome: this.computeOutcome(),
+      captured,
+      materialDelta,
     };
   }
 

@@ -91,6 +91,15 @@ export function SettingsPanel({ settings, onChange, onClose }: Props) {
             />
           </div>
           <div className="toggle-row">
+            <label htmlFor="evb">Evaluation bar</label>
+            <input
+              id="evb"
+              type="checkbox"
+              checked={settings.evalBarOn}
+              onChange={(e) => update('evalBarOn', e.target.checked)}
+            />
+          </div>
+          <div className="toggle-row">
             <label htmlFor="anm">Animation</label>
             <input
               id="anm"

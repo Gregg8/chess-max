@@ -20,6 +20,7 @@ export interface Settings {
   passPlayOrientation: PassPlayOrientation;
   soundOn: boolean;
   animationOn: boolean;
+  evalBarOn: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -33,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   passPlayOrientation: 'auto-flip',
   soundOn: true,
   animationOn: true,
+  evalBarOn: false,
 };
 
 export interface Square {
