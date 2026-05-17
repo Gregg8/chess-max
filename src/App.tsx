@@ -164,11 +164,15 @@ export function App() {
   }, [snapshot, session, thinking]);
 
   // Ask the engine to move when it's the engine's turn.
+  // Single helper that requests one engine move and applies it if the live
+  // game state hasn't moved on. Reads game state from the ref (not from
+  // snapshot in closure) so it doesn't go stale between renders.
   const requestEngineMove = useCallback(
-    async (skillLevel: number) => {
-      if (!gameRef.current.isLive()) return;
-      if (snapshot.outcome.kind !== 'in-progress') return;
-      const fenAtRequest = snapshot.fen;
+    async (skillLevel: number): Promise<boolean> => {
+      if (!gameRef.current.isLive()) return false;
+      const liveSnap = gameRef.current.snapshot();
+      if (liveSnap.outcome.kind !== 'in-progress') return false;
+      const fenAtRequest = liveSnap.fen;
       setThinking(true);
       try {
         const engine = await getEngine();
@@ -177,9 +181,7 @@ export function App() {
           skillLevel,
           movetimeMs: movetimeForDifficulty(skillLevel),
         });
-        // The game may have changed (user clicked new game, undid, etc).
-        // Only apply if the current live FEN still matches.
-        if (gameRef.current.snapshot().fen !== fenAtRequest) return;
+        if (gameRef.current.snapshot().fen !== fenAtRequest) return false;
         gameRef.current.move(
           move.from as SquareName,
           move.to as SquareName,
@@ -187,16 +189,19 @@ export function App() {
         );
         setHint(null);
         refresh();
+        return true;
       } catch {
-        // superseded / stopped / no legal — ignore
+        return false;
       } finally {
         setThinking(false);
       }
     },
-    [snapshot.fen, snapshot.outcome.kind, getEngine, refresh],
+    [getEngine, refresh],
   );
 
-  // Trigger engine moves for human-vs-engine when it's engine's turn.
+  // Trigger engine moves for human-vs-engine when it's engine's turn. This
+  // effect is purely a trigger — actual move logic is in requestEngineMove
+  // which reads from refs so it doesn't capture stale snapshots.
   useEffect(() => {
     if (session.mode !== 'human-vs-engine') return;
     if (snapshot.outcome.kind !== 'in-progress') return;
@@ -208,26 +213,48 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot.turn, snapshot.outcome.kind, session.mode, session.humanSide, settings.difficulty]);
 
-  // Engine-vs-engine driver loop.
+  // Engine-vs-engine driver. Self-recursive: each move's completion schedules
+  // the next tick. Does NOT depend on snapshot.turn re-firing the effect —
+  // that proved fragile because thinking-flips and snapshot-updates can split
+  // across renders, leading to a state where the trigger effect bails on
+  // thinking=true and never re-runs once thinking flips back.
+  //
+  // We use refs for settings the loop needs (speed, per-side skill) so
+  // changing them mid-game is picked up on the next tick without re-arming
+  // the loop. Pausing flips evePlayingRef and the next tick will exit.
+  const evePlayingRef = useRef(evePlaying);
+  const settingsRef = useRef(settings);
+  evePlayingRef.current = evePlaying;
+  settingsRef.current = settings;
+
+  const tickEve = useCallback(async (): Promise<void> => {
+    if (!evePlayingRef.current) return;
+    if (!gameRef.current.isLive()) return;
+    const turn = gameRef.current.snapshot().turn;
+    const s = settingsRef.current;
+    const skill = turn === 'w' ? s.eveWhiteDifficulty : s.eveBlackDifficulty;
+    const moved = await requestEngineMove(skill);
+    if (!moved) return;
+    if (!evePlayingRef.current) return;
+    setTimeout(() => {
+      void tickEve();
+    }, SPEED_DELAY_MS[settingsRef.current.eveSpeed]);
+  }, [requestEngineMove]);
+
+  // Kick off the EvE loop on evePlaying transition false → true (or on mode
+  // change). Cleanup clears the kickoff timer; in-flight requests cooperatively
+  // exit via the evePlayingRef check.
   useEffect(() => {
     if (session.mode !== 'engine-vs-engine') return;
     if (!evePlaying) return;
     if (snapshot.outcome.kind !== 'in-progress') return;
     if (!gameRef.current.isLive()) return;
-    if (thinking) return;
-    const skill = snapshot.turn === 'w' ? settings.eveWhiteDifficulty : settings.eveBlackDifficulty;
-    const id = setTimeout(() => requestEngineMove(skill), SPEED_DELAY_MS[settings.eveSpeed]);
+    const id = setTimeout(() => {
+      void tickEve();
+    }, SPEED_DELAY_MS[settings.eveSpeed]);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    snapshot.turn,
-    snapshot.outcome.kind,
-    session.mode,
-    evePlaying,
-    settings.eveWhiteDifficulty,
-    settings.eveBlackDifficulty,
-    settings.eveSpeed,
-  ]);
+  }, [session.mode, evePlaying, snapshot.outcome.kind]);
 
   // Stop EvE when game ends.
   useEffect(() => {
@@ -247,10 +274,16 @@ export function App() {
       session.mode === 'human-vs-engine' &&
       snapshot.turn !== session.humanSide
     ) return;
+    // In EvE while playing on the live position: skip — every eval query
+    // would supersede the next move's bestMove call on the shared worker and
+    // stall the self-recursive driver (tickEve exits on moved=false). When
+    // paused or browsing history, eval is fine.
+    if (
+      gameRef.current.isLive() &&
+      session.mode === 'engine-vs-engine' &&
+      evePlaying
+    ) return;
     if (snapshot.outcome.kind !== 'in-progress' && gameRef.current.isLive()) return;
-    // In EvE-playing: eval fires between plays. On Fast speed it'll often
-    // get superseded by the next play query; on Normal/Slow it has time
-    // to complete. (For solid eval on Fast, would need a second worker.)
     let cancelled = false;
     const fenAtRequest = snapshot.fen;
     (async () => {
@@ -268,7 +301,7 @@ export function App() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.fen, snapshot.outcome.kind, thinking, settings.evalBarOn, session.mode, session.humanSide]);
+  }, [snapshot.fen, snapshot.outcome.kind, thinking, settings.evalBarOn, session.mode, session.humanSide, evePlaying]);
 
   const onMove = useCallback(
     (from: SquareName, to: SquareName, promotion?: PieceType) => {
