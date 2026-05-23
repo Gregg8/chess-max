@@ -61,7 +61,7 @@ electron-builder.yml
 
 - The web build sets `base: '/chess-max/'` (correct for Pages). Under `file://` that absolute base breaks asset/worker/wasm resolution.
 - **Plan:** build the renderer for Electron with **`base: './'`** (relative). Either a dedicated Vite mode (`--mode electron`) or a small config override.
-- **Loading mechanism:** _default:_ register a custom `app://` protocol (`protocol.handle`) and serve the built renderer from it — cleaner than raw `file://` (avoids file-URL quirks, keeps a real origin for storage/CSP). _Alt:_ plain `loadFile('index.html')`. _TBD — confirm which the Stockfish worker + wasm load happily under._
+- **Loading mechanism (implemented):** prod uses `win.loadFile('dist-electron/renderer/index.html')`; dev loads the Vite dev server URL. Electron's `file://` handler serves `.js`/`.wasm` with correct MIME, and `localStorage` persists per `userData`, so this is the low-risk path. A custom `app://` protocol (`protocol.handle`) remains a documented future option if a real origin (stricter CSP via response headers, cleaner storage origin) becomes worthwhile.
 - **PWA service worker:** the `vite-plugin-pwa` SW is **omitted/inert** in the desktop build — updates are electron-updater's job, and SWs don't register under `file://`/custom protocols anyway. _Default:_ disable the PWA plugin in the electron build mode.
 - **Stockfish:** `copy-stockfish.mjs` already stages the worker + wasm into the bundle; with relative base they resolve fine. Verify the worker path (`/stockfish/...`) is relative in the engine adapter, or make it base-aware.
 
@@ -81,8 +81,8 @@ electron-builder.yml
 ## 8. Auto-update (electron-updater → GitHub Releases)
 
 - **Provider:** GitHub. `electron-builder` publishes `latest.yml` / `latest-mac.yml` / `latest-linux.yml` + artifacts to a Release; `electron-updater` reads them.
-- **Flow:** on launch (and optionally a periodic re-check), check for updates → download in background → notify renderer → **install on quit** (or "Restart now" via a renderer prompt). _Default:_ silent background download, then a non-blocking "Update ready — Restart" affordance in the app UI. _TBD: exact UI placement (sidebar status vs toast)._ 
-- **IPC surface (preload):** `onUpdateAvailable`, `onUpdateDownloaded`, `onUpdateError`, `quitAndInstall()`. Keep it minimal and typed.
+- **Flow (implemented):** on launch, check for updates → silent background download → **install on quit** (`autoInstallOnAppQuit`). This is a complete, no-UI update path for v1. The main process also emits status events over IPC so a renderer affordance (a non-blocking "Update ready — Restart" prompt, calling `quitAndInstall()`) can be layered on later. _TBD: exact UI placement (sidebar status vs toast)._
+- **IPC surface (preload, implemented):** `window.chessMaxDesktop` exposes `platform`, `getVersion()`, `onUpdateStatus(cb)` (status: `checking | available | none | downloading | downloaded | error`), and `quitAndInstall()`. Minimal and typed via `contextBridge`.
 - **Per-platform reality (unsigned, this round):**
   - **Linux (AppImage):** auto-update works.
   - **Windows (NSIS):** auto-update works; first install shows SmartScreen (unsigned).
