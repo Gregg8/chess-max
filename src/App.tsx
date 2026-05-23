@@ -19,6 +19,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { EndGameBanner } from './components/EndGameBanner';
 import { CapturedStrip } from './components/CapturedStrip';
 import { EvalBar } from './components/EvalBar';
+import { UpdateBanner } from './components/UpdateBanner';
 
 interface SessionState {
   mode: GameMode;
@@ -511,6 +512,8 @@ export function App() {
           onClose={() => setSettingsOpen(false)}
         />
       )}
+
+      <UpdateBanner />
     </div>
   );
 }

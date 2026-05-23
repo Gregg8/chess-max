@@ -539,6 +539,38 @@ select {
   justify-content: center;
 }
 
+/* Desktop update toast */
+.update-toast {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 280px;
+}
+.update-toast-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.update-toast-text span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.update-toast-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 /* Settings */
 .settings .row-grid {
   display: grid;
