@@ -1,7 +1,13 @@
 /// <reference types="vitest" />
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// Version shown in the UI. CI sets APP_VERSION to MAJOR.MINOR.<run-number>
+// (see scripts/app-version.mjs); local builds fall back to package.json.
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+const appVersion = process.env.APP_VERSION ?? pkg.version;
 
 // `electron` mode builds the renderer for the desktop shell: relative asset
 // paths (so it loads from file://) and no PWA service worker (updates are
@@ -12,6 +18,9 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     base: isElectron ? (command === 'build' ? './' : '/') : '/chess-max/',
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
     plugins: [
       react(),
       ...(isElectron
