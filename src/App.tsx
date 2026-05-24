@@ -417,7 +417,9 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>chess-max</h1>
+        <h1>
+          chess-max <span className="app-version">v{__APP_VERSION__}</span>
+        </h1>
         <div className="controls">
           <button onClick={() => setNewGameOpen(true)}>New game</button>
           {session.mode === 'engine-vs-engine' && snapshot.outcome.kind === 'in-progress' && (

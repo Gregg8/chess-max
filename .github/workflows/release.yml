@@ -23,6 +23,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Set version
+        # Auto-derive the version (MAJOR.MINOR.<run-number>) rather than reading
+        # the trigger tag. electron-builder and the renderer both read it from
+        # package.json. Not committed back — the runner checkout is throwaway.
+        shell: bash
+        run: npm version "$(node scripts/app-version.mjs)" --no-git-tag-version --allow-same-version
       - run: npm run typecheck
       - run: npm test
       - name: Build and publish desktop app
