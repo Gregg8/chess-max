@@ -1,0 +1,45 @@
+appId: io.github.gregg8.chessmax
+productName: Chess Max
+copyright: Copyright © 2026 gregg8
+
+directories:
+  output: release
+  buildResources: build
+
+# Renderer + bundled main/preload are self-contained; nothing from node_modules
+# is needed at runtime, so the packaged app stays lean.
+files:
+  - dist-electron/**/*
+  - package.json
+  - "!**/node_modules/**/*"
+
+asar: true
+
+publish:
+  provider: github
+  owner: Gregg8
+  repo: chess-max
+
+mac:
+  category: public.app-category.board-games
+  target:
+    - dmg
+    - zip
+  # Unsigned for now — disables signing so local/CI builds succeed. macOS
+  # auto-update stays off until a Developer ID signature + notarization land.
+  identity: null
+
+win:
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Game
+  target:
+    - AppImage
+    - deb
