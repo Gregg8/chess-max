@@ -47,6 +47,17 @@ npm test           # vitest run
 
 Pushes to `main` are auto-deployed to GitHub Pages by `.github/workflows/deploy.yml` (typecheck → tests → build → publish to the `github-pages` environment).
 
+## Versioning & releases
+
+Versions are semver. `MAJOR.MINOR` are set by hand in `package.json`; the patch is derived automatically by CI (`scripts/app-version.mjs`). The version is injected into the bundle at build time as `__APP_VERSION__` and shown in the app header.
+
+- **Tagged release (desktop):** push a `vX.Y.Z` tag (or run the `release` workflow). The tag is authoritative — the published apps, the GitHub Release, and the in-app version are all exactly `X.Y.Z`. This is the build users should install.
+- **Auto build:** every push to `main` (web) and any manual `release` dispatch (desktop) is versioned `MAJOR.MINOR.<run-number + 1000>`, e.g. `0.1.1047`. The `+1000` keeps auto patch numbers in a band no hand-picked tag will use, so an auto version can never duplicate a tagged one. The web and desktop run-number counters are independent, so their patch numbers won't match.
+
+To bump the displayed `MAJOR.MINOR`, edit `version` in `package.json`.
+
+> **Caveat:** a *published* manual desktop dispatch build (`0.1.100x`) out-ranks a real `0.1.x` tagged release in the auto-updater (a minor bump like `0.2.0` still wins). Prefer tags for desktop releases.
+
 ## Design notes
 
 The v1 product spec is in [SPEC.md](./SPEC.md). It was built interview-style and each round of decisions was committed as it was made — useful context for *why* a given feature works the way it does.
