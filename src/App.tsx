@@ -154,10 +154,10 @@ export function App() {
     return 'w';
   }, [session.mode, session.humanSide, settings.passPlayOrientation, snapshot.turn]);
 
-  // Whether the player can interact with the board.
+  // Whether the player can interact with the board. Positions reached via
+  // undo/history-jump stay interactive: moving from one forks the game there.
   const interactive = useMemo(() => {
     if (snapshot.outcome.kind !== 'in-progress') return false;
-    if (!gameRef.current.isLive()) return false;
     if (session.mode === 'engine-vs-engine') return false;
     if (session.mode === 'pass-and-play') return true;
     // human-vs-engine: only on user's turn
@@ -342,7 +342,7 @@ export function App() {
   }, [session.mode, session.humanSide, refresh]);
 
   const onHint = useCallback(async () => {
-    if (snapshot.outcome.kind !== 'in-progress' || !gameRef.current.isLive()) return;
+    if (snapshot.outcome.kind !== 'in-progress') return;
     try {
       const engine = await getEngine();
       // Ask at full strength for a meaningful hint.
@@ -405,7 +405,6 @@ export function App() {
   const canRedo = snapshot.cursor < snapshot.history.length;
   const canHint =
     snapshot.outcome.kind === 'in-progress' &&
-    gameRef.current.isLive() &&
     session.mode !== 'engine-vs-engine' &&
     !thinking;
 

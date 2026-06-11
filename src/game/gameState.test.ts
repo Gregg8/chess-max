@@ -68,6 +68,37 @@ describe('GameState', () => {
     expect(g.snapshot().cursor).toBe(2);
   });
 
+  it('exposes legal moves at positions behind the live one', () => {
+    const g = new GameState(['e4', 'e5', 'Nf3']);
+    g.undo();
+    g.undo();
+    // At cursor=1 (after e4) it's black to move with the full 20 replies.
+    const s = g.snapshot();
+    expect(s.cursor).toBe(1);
+    expect(s.turn).toBe('b');
+    expect(s.legalMoves.length).toBe(20);
+    expect(g.legalMovesFrom('c7').length).toBe(2);
+  });
+
+  it('treats positions behind the live one as in-progress even after game end', () => {
+    const g = new GameState(['f3', 'e5', 'g4', 'Qh4#']);
+    expect(g.snapshot().outcome.kind).toBe('checkmate');
+    g.undo();
+    expect(g.snapshot().outcome.kind).toBe('in-progress');
+  });
+
+  it('forking after a resignation clears it so play continues', () => {
+    const g = new GameState(['e4', 'e5']);
+    g.resign('b');
+    expect(g.snapshot().outcome.kind).toBe('resign');
+    g.undo();
+    expect(g.snapshot().outcome.kind).toBe('in-progress');
+    expect(g.move('c7', 'c5')).not.toBeNull();
+    const s = g.snapshot();
+    expect(s.history).toEqual(['e4', 'c5']);
+    expect(s.outcome.kind).toBe('in-progress');
+  });
+
   it('identifies promotion correctly', () => {
     // Build up to a position where white can promote on the next move.
     const moves = ['h4', 'a5', 'h5', 'a4', 'h6', 'a3', 'hxg7'];

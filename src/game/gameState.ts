@@ -2,8 +2,9 @@ import { Chess, type Move, type Square as ChessJsSquare } from 'chess.js';
 import type { Color, Outcome, PieceOnSquare, PieceType, SquareName } from '../types';
 
 // Wraps chess.js with the navigation model we want: a single linear move
-// history with a cursor. Jumping backwards is read-only; making a move
-// while behind the live position truncates history from the cursor forward.
+// history with a cursor. Jumping backwards doesn't modify history; making a
+// move while behind the live position truncates history from the cursor
+// forward and play continues from there.
 
 export interface GameSnapshot {
   fen: string;
@@ -88,7 +89,7 @@ export class GameState {
       history: [...this.fullHistory],
       cursor: this.cursor,
       pieces,
-      legalMoves: this.cursor === this.fullHistory.length ? this.chess.moves({ verbose: true }) : [],
+      legalMoves: this.chess.moves({ verbose: true }),
       lastMove: recentMove
         ? { from: recentMove.from as SquareName, to: recentMove.to as SquareName }
         : null,
@@ -100,10 +101,12 @@ export class GameState {
   }
 
   private computeOutcome(): Outcome {
+    // Positions behind the live one are playable continuation points, so the
+    // game is in-progress there even if the live game has concluded.
+    if (this.cursor !== this.fullHistory.length) return { kind: 'in-progress' };
     if (this.resigned) {
       return { kind: 'resign', winner: this.resigned === 'w' ? 'b' : 'w' };
     }
-    if (this.cursor !== this.fullHistory.length) return { kind: 'in-progress' };
     if (this.chess.isCheckmate()) {
       return { kind: 'checkmate', winner: this.chess.turn() === 'w' ? 'b' : 'w' };
     }
@@ -117,15 +120,16 @@ export class GameState {
   }
 
   legalMovesFrom(square: SquareName): Move[] {
-    if (this.cursor !== this.fullHistory.length) return [];
     return this.chess.moves({ square: square as ChessJsSquare, verbose: true });
   }
 
   // Returns the move if successful; null if illegal.
   move(from: SquareName, to: SquareName, promotion?: PieceType): Move | null {
     if (this.cursor !== this.fullHistory.length) {
-      // Truncate forward history on fork: cursor becomes live.
+      // Truncate forward history on fork: cursor becomes live. A resignation
+      // belongs to the abandoned line, so the fork clears it.
       this.fullHistory = this.fullHistory.slice(0, this.cursor);
+      this.resigned = null;
     }
     try {
       const result = this.chess.move({ from, to, promotion });
@@ -170,7 +174,6 @@ export class GameState {
   }
 
   isPromotion(from: SquareName, to: SquareName): boolean {
-    if (!this.isLive()) return false;
     const piece = this.chess.get(from as ChessJsSquare);
     if (!piece || piece.type !== 'p') return false;
     const toRank = parseInt(to[1], 10);
