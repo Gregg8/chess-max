@@ -51,7 +51,7 @@ Pushes to `main` are auto-deployed to GitHub Pages by `.github/workflows/deploy.
 
 Versions are semver. `MAJOR.MINOR` are set by hand in `package.json`; the patch is derived automatically by CI (`scripts/app-version.mjs`). The version is injected into the bundle at build time as `__APP_VERSION__` and shown in the app header.
 
-- **Tagged release (desktop):** push a `vX.Y.Z` tag (or run the `tag` workflow, which creates the tag and dispatches `release` on it). The tag is authoritative — the published apps, the GitHub Release, and the in-app version are all exactly `X.Y.Z`. This is the build users should install.
+- **Tagged release (desktop):** set `version` in `package.json` to the release version. On the next push to `main`, the `tag` workflow tags that commit `vX.Y.Z` (skipped if the tag already exists) and dispatches the `release` build on it. Pushing a `vX.Y.Z` tag by hand or dispatching the `tag` workflow with an explicit tag works too. The tag is authoritative — the published apps, the GitHub Release, and the in-app version are all exactly `X.Y.Z`. This is the build users should install.
 - **Auto build:** every push to `main` (web) and any manual `release` dispatch (desktop) is versioned `MAJOR.MINOR.<run-number + 1000>`, e.g. `0.1.1047`. The `+1000` keeps auto patch numbers in a band no hand-picked tag will use, so an auto version can never duplicate a tagged one. The web and desktop run-number counters are independent, so their patch numbers won't match.
 
 To bump the displayed `MAJOR.MINOR`, edit `version` in `package.json`.
