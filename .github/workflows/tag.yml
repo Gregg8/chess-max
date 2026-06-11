@@ -1,17 +1,23 @@
 name: tag
 
-# Creates a release tag on the dispatched ref and kicks off the release
-# workflow for it. Exists because a tag pushed with GITHUB_TOKEN does not fire
-# `on: push: tags` workflows, so release.yml is dispatched on the new tag
-# explicitly. Dispatching release.yml on a tag ref makes the tag authoritative
-# for the version (see scripts/app-version.mjs), exactly like a manual tag push.
+# Cuts a tagged release. Runs on every push to main: if the version in
+# package.json (as vX.Y.Z) isn't tagged yet, tags that commit and dispatches
+# release.yml on the new tag. Pushes where the tag already exists are no-ops.
+# Can also be dispatched manually with an explicit tag.
+#
+# The explicit dispatch exists because a tag pushed with GITHUB_TOKEN does not
+# fire `on: push: tags` workflows. Dispatching release.yml on the tag ref makes
+# the tag authoritative for the version (see scripts/app-version.mjs), exactly
+# like a manually pushed tag.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag, full semver with leading v (e.g. v0.1.0)'
-        required: true
+        description: 'Release tag, full semver with leading v (e.g. v0.1.0). Defaults to v<package.json version>.'
+        required: false
 
 permissions:
   contents: write
@@ -20,20 +26,28 @@ permissions:
 jobs:
   tag:
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v4
-      - name: Validate tag format
+      - name: Resolve tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
+          TAG="${INPUT_TAG:-v$(node -p "require('./package.json').version")}"
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
             echo "Tag must be full semver with a leading v, e.g. v0.1.0"; exit 1;
           }
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
       - name: Create and push tag
         run: |
-          git tag "$TAG"
-          git push origin "refs/tags/$TAG"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — nothing to do."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          else
+            git tag "$TAG"
+            git push origin "refs/tags/$TAG"
+          fi
       - name: Dispatch release workflow on the tag
+        if: env.SKIP != 'true'
         run: gh workflow run release.yml --ref "$TAG"
         env:
           GH_TOKEN: ${{ github.token }}
