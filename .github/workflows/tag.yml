@@ -1,0 +1,39 @@
+name: tag
+
+# Creates a release tag on the dispatched ref and kicks off the release
+# workflow for it. Exists because a tag pushed with GITHUB_TOKEN does not fire
+# `on: push: tags` workflows, so release.yml is dispatched on the new tag
+# explicitly. Dispatching release.yml on a tag ref makes the tag authoritative
+# for the version (see scripts/app-version.mjs), exactly like a manual tag push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, full semver with leading v (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag format
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
+            echo "Tag must be full semver with a leading v, e.g. v0.1.0"; exit 1;
+          }
+      - name: Create and push tag
+        run: |
+          git tag "$TAG"
+          git push origin "refs/tags/$TAG"
+      - name: Dispatch release workflow on the tag
+        run: gh workflow run release.yml --ref "$TAG"
+        env:
+          GH_TOKEN: ${{ github.token }}
