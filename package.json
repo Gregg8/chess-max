@@ -1,7 +1,12 @@
 {
   "name": "chess-max",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "description": "Browser and desktop chess: play Stockfish, pass-and-play, or watch engine vs engine.",
+  "author": {
+    "name": "Gregg Ramsey",
+    "email": "gregg.ramsey@gmail.com"
+  },
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {

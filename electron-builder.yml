@@ -19,6 +19,9 @@ publish:
   provider: github
   owner: Gregg8
   repo: chess-max
+  # Publish the GitHub Release outright — the default is a draft that would
+  # sit unpublished until confirmed by hand.
+  releaseType: release
 
 mac:
   category: public.app-category.board-games
