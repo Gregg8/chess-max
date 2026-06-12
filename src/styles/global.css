@@ -88,7 +88,11 @@ select {
 .app {
   display: grid;
   gap: 16px;
-  padding: 16px;
+  /* In iOS standalone (home-screen) mode the page extends under the status
+     bar and home indicator (viewport-fit=cover); keep content inside the
+     safe area. The insets are 0 in regular browsers. */
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   min-height: 100%;
   background: var(--bg);
   grid-template-columns: 1fr;
@@ -120,12 +124,28 @@ select {
   letter-spacing: 0.02em;
 }
 
+/* The version label is a button (tap to check for updates) styled as plain
+   inline text. */
 .app-header .app-version {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  min-height: 0;
   font-size: 11px;
   font-weight: 400;
   color: var(--text-muted);
   letter-spacing: 0;
   vertical-align: middle;
+  text-align: left;
+}
+.app-header button.app-version:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+.app-header .app-version.update-ready {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .app-header .controls {
@@ -550,8 +570,8 @@ select {
 /* Desktop update toast */
 .update-toast {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  right: calc(16px + env(safe-area-inset-right));
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
