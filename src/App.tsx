@@ -20,6 +20,7 @@ import { EndGameBanner } from './components/EndGameBanner';
 import { CapturedStrip } from './components/CapturedStrip';
 import { EvalBar } from './components/EvalBar';
 import { UpdateBanner } from './components/UpdateBanner';
+import { VersionBadge } from './components/VersionBadge';
 
 interface SessionState {
   mode: GameMode;
@@ -417,7 +418,7 @@ export function App() {
     <div className="app">
       <header className="app-header">
         <h1>
-          chess-max <span className="app-version">v{__APP_VERSION__}</span>
+          chess-max <VersionBadge />
         </h1>
         <div className="controls">
           <button onClick={() => setNewGameOpen(true)}>New game</button>
